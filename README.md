@@ -169,13 +169,12 @@ The bot replies in-thread once the analysis is complete, with the same confidenc
 - **Confidence scoring** — every fix is accompanied by a numeric confidence score and a written explanation of what the reviewer agent is uncertain about, if anything.
 - **Intent routing** — the system distinguishes bug reports from general questions, so it never opens an unnecessary pull request in response to a casual question about the codebase.
 
-## 🗺️ Possible next steps
+---
 
-- Asynchronous job processing with a queue, so requests don't block on the full pipeline.
-- A learning-memory layer that adjusts future fixes based on which past PRs were accepted or rejected.
-- A fix-simulation step that runs the generated code before opening a PR.
-- Containerization and a hosted deployment for a live demo link.
+## 👩‍💻 Built by
 
-## 📄 License
+**Himanshi Sonkusale**
 
-This project is available for personal and educational use.
+GitHub: [@himanshisonkusale](https://github.com/himanshisonkusale)
+
+If you found this project interesting, consider starring the repository — it helps others discover it too.
