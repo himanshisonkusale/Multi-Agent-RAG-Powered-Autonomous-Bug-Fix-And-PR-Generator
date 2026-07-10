@@ -1,4 +1,4 @@
-# 🤖 Autonomous Bug Fixer
+<!-- # 🤖 Autonomous Bug Fixer
 
 A multi-agent AI system that turns a plain-English bug report into a reviewed, ready-to-merge GitHub pull request — triggered from Slack or a web dashboard.
 
@@ -177,4 +177,4 @@ The bot replies in-thread once the analysis is complete, with the same confidenc
 
 GitHub: [@himanshisonkusale](https://github.com/himanshisonkusale)
 
-If you found this project interesting, consider starring the repository — it helps others discover it too.
+If you found this project interesting, consider starring the repository — it helps others discover it too. -->

@@ -760,6 +760,47 @@
     return d.innerHTML;
   }
 
+  async function pollJobStatus(jobId, statusMsg) {
+    const statusLine = statusMsg.querySelector('.status-line');
+    const maxAttempts = 60; // ~2 minutes at 2s intervals
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      attempts++;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/sentinel/status/${jobId}`);
+        const data = await res.json();
+
+        if (data.status === 'completed') {
+          return { ok: true, data: data.result };
+        }
+        if (data.status === 'failed') {
+          return { ok: false, error: data.error || 'Job failed' };
+        }
+
+        // still in progress — update the status label with the current stage
+        if (statusLine) {
+          const stageLabels = {
+            classifying: 'Figuring out what kind of request this is…',
+            analyzing: 'Analyzing the codebase…',
+            fixing: 'Writing the fix…',
+            reviewing: 'Reviewing the fix and scoring confidence…',
+            creating_pr: 'Opening the pull request…',
+            answering: 'Working out the answer…',
+          };
+          const label = stageLabels[data.stage] || 'Working on it…';
+          statusLine.innerHTML = `<span class="spinner"></span>${label}`;
+        }
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+    }
+
+    return { ok: false, error: 'Timed out waiting for a response.' };
+  }
+
   async function sendMessage() {
     const input = el('bugInput');
     const text = input.value.trim();
@@ -771,7 +812,7 @@
     el('sendBtn').disabled = true;
     input.disabled = true;
 
-    const statusMsg = appendStatusMessage('Thinking…');
+    const statusMsg = appendStatusMessage('Queuing the request…');
 
     try {
       const res = await fetch(`${API_BASE}/api/sentinel/process`, {
@@ -785,15 +826,25 @@
           createPR: el('createPrCheckbox').checked,
         }),
       });
-      const data = await res.json();
+      const queued = await res.json();
+
+      if (!res.ok || queued.error) {
+        statusMsg.remove();
+        appendErrorCard(queued.error || 'Could not queue this request.');
+        return;
+      }
+
+      const outcome = await pollJobStatus(queued.jobId, statusMsg);
       statusMsg.remove();
 
-      if (!res.ok || data.error) {
-        appendErrorCard(data.error || 'Something went wrong while processing this bug.');
-      } else if (data.type === 'chat') {
-        appendChatAnswer(data.answer);
+      if (!outcome.ok) {
+        appendErrorCard(outcome.error);
+      } else if (outcome.data.type === 'chat') {
+        appendChatAnswer(outcome.data.answer);
+      } else if (outcome.data.type === 'error') {
+        appendErrorCard(outcome.data.error);
       } else {
-        appendResultCard(data);
+        appendResultCard(outcome.data);
       }
     } catch (err) {
       statusMsg.remove();

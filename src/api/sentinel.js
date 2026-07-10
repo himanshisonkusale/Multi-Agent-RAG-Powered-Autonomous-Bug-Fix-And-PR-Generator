@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { analyzeBug } = require('../agents/analyzer');
-const { generateFix } = require('../agents/fixer');
-const { reviewFix } = require('../agents/reviewer');
-const { createFixPR } = require('../github/prCreator');
-const { classifyIntent, answerGeneralQuestion } = require('../agents/router');
+const { bugFixQueue } = require('../queue/redisQueue');
+require('../queue/worker'); // starts the background worker as soon as this file loads
 
+// Kept for direct/manual analysis testing — not part of the main async flow
 router.post('/analyze', async (req, res) => {
   const { bugDescription, repo } = req.body;
 
@@ -22,6 +21,7 @@ router.post('/analyze', async (req, res) => {
   }
 });
 
+// Step 1: Enqueue the job and return immediately with a jobId
 router.post('/process', async (req, res) => {
   const { bugDescription, repo, owner, accessToken, createPR } = req.body;
 
@@ -30,58 +30,46 @@ router.post('/process', async (req, res) => {
   }
 
   try {
-    const fullRepoName = `${owner}/${repo}`;
-
-    // Step 0: Decide first — is this a bug report or a general question?
-    const intent = await classifyIntent(bugDescription);
-
-    if (intent === 'general_question') {
-      const result = await answerGeneralQuestion(bugDescription, fullRepoName);
-      return res.json({
-        type: 'chat',
-        answer: result.answer,
-        relevantFiles: result.relevantFiles,
-      });
-    }
-
-    // Step 1: Analyzer
-    const analysis = await analyzeBug(bugDescription, fullRepoName);
-    if (analysis.error) return res.status(400).json(analysis);
-
-    // Step 2: Fixer
-    const fix = await generateFix(analysis, bugDescription, fullRepoName);
-    if (fix.error) return res.status(400).json(fix);
-
-    // Step 3: Reviewer
-    const review = await reviewFix(analysis, fix, bugDescription);
-
-    let pr = null;
-
-    // Step 4: PR creation — sirf jab createPR true ho aur accessToken diya ho
-    if (createPR && accessToken) {
-      try {
-        pr = await createFixPR({ owner, repo, accessToken, fix, analysis, review, bugDescription });
-      } catch (prError) {
-        return res.json({
-          type: 'fix',
-          analysis,
-          fix,
-          review,
-          prError: prError.message,
-        });
-      }
-    }
-
-    res.json({
-      type: 'fix',
-      analysis,
-      fix,
-      review,
-      pr,
+    const job = await bugFixQueue.add('process-bug', {
+      bugDescription,
+      repo,
+      owner,
+      accessToken,
+      createPR,
     });
+
+    res.json({ jobId: job.id, status: 'queued' });
   } catch (error) {
-    console.error('Pipeline error:', error.message);
-    res.status(500).json({ error: 'Pipeline failed', details: error.message });
+    console.error('Queue error:', error.message);
+    res.status(500).json({ error: 'Failed to queue job', details: error.message });
+  }
+});
+
+// Step 2: Poll this endpoint to check job progress / result
+router.get('/status/:jobId', async (req, res) => {
+  try {
+    const job = await bugFixQueue.getJob(req.params.jobId);
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    const state = await job.getState();
+
+    if (state === 'completed') {
+      return res.json({ status: 'completed', result: job.returnvalue });
+    }
+
+    if (state === 'failed') {
+      return res.json({ status: 'failed', error: job.failedReason });
+    }
+
+    // waiting, active, or delayed — still in progress
+    const progress = job.progress || {};
+    return res.json({ status: 'in_progress', stage: progress.stage || state });
+  } catch (error) {
+    console.error('Status check error:', error.message);
+    res.status(500).json({ error: 'Failed to check job status', details: error.message });
   }
 });
 
