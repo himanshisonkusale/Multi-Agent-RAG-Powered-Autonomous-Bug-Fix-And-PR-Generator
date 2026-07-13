@@ -2,7 +2,19 @@ const Groq = require('groq-sdk');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-async function reviewFix(analysis, fix, bugDescription) {
+async function reviewFix(analysis, fix, bugDescription, simulation, historySummary) {
+  const simulationNote = simulation
+    ? simulation.passed === true
+      ? 'A simulation applied this fix to the real file and ran a syntax check — it passed.'
+      : simulation.passed === false
+        ? `A simulation applied this fix to the real file and the syntax check FAILED: ${simulation.message}`
+        : `Simulation was not available for this file type (${simulation.message}). Judge based on the code alone.`
+    : 'No simulation was run for this file type.';
+
+  const historyNote = historySummary && historySummary.total > 0
+    ? `This repository has ${historySummary.total} past automated fix(es): ${historySummary.merged} merged, ${historySummary.rejected} rejected, ${historySummary.pending} still pending review. A high rejection rate should make you more cautious; a high merge rate is a mild positive signal, but should never override a failed simulation or weak reasoning.`
+    : 'No past automated fixes exist yet for this repository — there is no track record to factor in.';
+
   const prompt = `You are a senior code reviewer validating an AI-generated bug fix before it gets merged into production.
 
 Bug Report:
@@ -22,11 +34,19 @@ ${fix.fixedCode}
 Fix Explanation:
 ${fix.explanation}
 
+Simulation result:
+${simulationNote}
+
+Historical context:
+${historyNote}
+
 Carefully review this fix and evaluate:
 1. Does it actually address the root cause?
 2. Could it introduce any side effects or break other functionality?
 3. Is the code syntactically correct and consistent with good practices?
 4. Is there enough context to be fully confident, or are there uncertainties?
+5. If the simulation failed, the confidence score must be low (below 30) and the verdict must be "risky" — a syntax failure is disqualifying regardless of how good the reasoning looks otherwise.
+6. Factor in the historical context as a minor adjustment only — it should never be the primary reason for the score.
 
 Respond in this exact JSON format (no markdown, just raw JSON):
 {

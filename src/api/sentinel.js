@@ -73,4 +73,21 @@ router.get('/status/:jobId', async (req, res) => {
   }
 });
 
+// Step 2: User said "yes" — enqueue the actual fix using the saved analysis
+router.post('/confirm', async (req, res) => {
+  const { pendingId, createPR } = req.body;
+
+  if (!pendingId) {
+    return res.status(400).json({ error: 'pendingId required' });
+  }
+
+  try {
+    const job = await bugFixQueue.add('confirm-fix', { pendingId, createPR });
+    res.json({ jobId: job.id, status: 'queued' });
+  } catch (error) {
+    console.error('Confirm error:', error.message);
+    res.status(500).json({ error: 'Failed to queue the fix', details: error.message });
+  }
+});
+
 module.exports = router;

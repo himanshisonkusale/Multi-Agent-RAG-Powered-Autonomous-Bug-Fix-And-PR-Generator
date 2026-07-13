@@ -382,6 +382,35 @@
   .pr-link:hover { border-color: var(--accent-info); }
   .pr-link .arrow { color: var(--accent-info); font-family: var(--font-mono); }
 
+  .analysis-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .analysis-actions button {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: opacity .15s ease;
+  }
+  .analysis-actions button:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-confirm-yes {
+    background: var(--accent-safe);
+    color: #06231b;
+    border-color: var(--accent-safe);
+  }
+  .btn-confirm-no {
+    background: var(--surface);
+    color: var(--text-lo);
+  }
+
   .error-card {
     background: rgba(226,96,79,0.08);
     border: 1px solid rgba(226,96,79,0.35);
@@ -682,6 +711,17 @@
 
     const score = review?.confidenceScore ?? 0;
 
+    const simBadge = (() => {
+      if (!data.simulation) return '';
+      if (data.simulation.passed === true) {
+        return `<div class="result-section"><div class="label">Fix simulation</div><div class="value" style="color:var(--accent-safe)">Passed — syntax check ran clean on the full file</div></div>`;
+      }
+      if (data.simulation.passed === false) {
+        return `<div class="result-section"><div class="label">Fix simulation</div><div class="value" style="color:var(--accent-risk)">Failed — ${escapeHtml(data.simulation.message)}${data.prSkipped ? ' (PR was not opened)' : ''}</div></div>`;
+      }
+      return `<div class="result-section"><div class="label">Fix simulation</div><div class="value" style="color:var(--text-lo)">Skipped — ${escapeHtml(data.simulation.message)}</div></div>`;
+    })();
+
     const msg = document.createElement('div');
     msg.className = 'msg bot';
     msg.innerHTML = `
@@ -710,6 +750,8 @@
           <div class="label">Fix — ${escapeHtml(fix?.filePath || '')}</div>
           <div class="value">${escapeHtml(fix?.explanation || '—')}</div>
         </div>
+
+        ${simBadge}
 
         <div class="result-section">
           <div class="label">Reasoning</div>
@@ -740,6 +782,77 @@
     `;
     thread.appendChild(msg);
     thread.scrollTop = thread.scrollHeight;
+  }
+
+  function appendAnalysisCard(analysis, pendingId) {
+    const thread = el('thread');
+    const msg = document.createElement('div');
+    msg.className = 'msg bot';
+    msg.innerHTML = `
+      <div class="bubble-avatar">◈</div>
+      <div class="result-card">
+        <div class="result-section">
+          <div class="label">Root cause</div>
+          <div class="value">${escapeHtml(analysis?.rootCause || '—')}</div>
+        </div>
+        <div class="result-section">
+          <div class="label">Details</div>
+          <div class="value">${escapeHtml(analysis?.explanation || '—')}</div>
+        </div>
+        <div class="analysis-actions">
+          <button class="btn-confirm-yes">Yes, fix it and open a PR</button>
+          <button class="btn-confirm-no">No, don't fix it</button>
+        </div>
+      </div>
+    `;
+    thread.appendChild(msg);
+    thread.scrollTop = thread.scrollHeight;
+
+    const actions = msg.querySelector('.analysis-actions');
+    const yesBtn = msg.querySelector('.btn-confirm-yes');
+    const noBtn = msg.querySelector('.btn-confirm-no');
+
+    noBtn.addEventListener('click', () => {
+      actions.innerHTML = `<div style="color:var(--text-lo); font-size:13px;">Okay, I won't make any changes.</div>`;
+    });
+
+    yesBtn.addEventListener('click', async () => {
+      yesBtn.disabled = true;
+      noBtn.disabled = true;
+      actions.innerHTML = `<div class="status-line"><span class="spinner"></span>Generating the fix…</div>`;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/sentinel/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pendingId,
+            createPR: el('createPrCheckbox').checked,
+          }),
+        });
+        const queued = await res.json();
+
+        if (!res.ok || queued.error) {
+          actions.remove();
+          appendErrorCard(queued.error || 'Could not start the fix.');
+          return;
+        }
+
+        const outcome = await pollJobStatus(queued.jobId, actions);
+        actions.remove();
+
+        if (!outcome.ok) {
+          appendErrorCard(outcome.error);
+        } else if (outcome.data.type === 'error') {
+          appendErrorCard(outcome.data.error);
+        } else {
+          appendResultCard(outcome.data);
+        }
+      } catch (err) {
+        actions.remove();
+        appendErrorCard(err.message);
+      }
+    });
   }
 
   function appendErrorCard(text) {
@@ -843,6 +956,8 @@
         appendChatAnswer(outcome.data.answer);
       } else if (outcome.data.type === 'error') {
         appendErrorCard(outcome.data.error);
+      } else if (outcome.data.type === 'analysis') {
+        appendAnalysisCard(outcome.data.analysis, outcome.data.pendingId);
       } else {
         appendResultCard(outcome.data);
       }
