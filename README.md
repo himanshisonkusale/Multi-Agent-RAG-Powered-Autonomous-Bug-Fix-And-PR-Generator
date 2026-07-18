@@ -11,21 +11,6 @@ A multi-agent AI system that turns a plain-English bug report into a reviewed, r
 ![Slack](https://img.shields.io/badge/Slack-Bolt-4A154B?style=flat&logo=slack&logoColor=white)
 ![GitHub](https://img.shields.io/badge/GitHub-Octokit-181717?style=flat&logo=github&logoColor=white)
 
-## System Architecture
-
-<p align="center">
-  <img src="./archi/architecture.png" alt="Autonomous Bug Fixer — Multi-Agent RAG System Architecture" width="100%">
-</p>
-
-<p align="center">
-  <em>
-    End-to-end architecture of the Autonomous Bug Fixer — Multi-Agent RAG System,
-    illustrating intent routing, retrieval-augmented generation (RAG), multi-agent
-    analysis, automated fix generation, GitHub integration, continuous learning,
-    and response delivery.
-  </em>
-</p>
-
 ## Overview
 
 Most AI coding tools stop at suggesting a fix. This project goes further: it reads the actual codebase, traces a reported bug to its root cause, asks the user for confirmation, generates a real code diff, validates it before anything is committed, and opens a pull request — with a self-assigned confidence score and written reasoning attached.
@@ -43,6 +28,22 @@ Nothing merges automatically. Every fix is simulated for correctness, scored for
 - **Learning memory.** A GitHub webhook records whether past automated PRs were merged or rejected, and that history is factored into future reviews for the same repository.
 - **Asynchronous processing.** Requests are handled through a Redis-backed job queue (BullMQ), so the API responds immediately and the UI polls for live progress instead of blocking on a single long request.
 - **Two entry points.** The same backend pipeline can be triggered from a Slack mention or a web dashboard.
+
+## System Architecture
+
+<p align="center">
+  <img src="./archi/architecture.png" alt="Autonomous Bug Fixer — Multi-Agent RAG System Architecture" width="100%">
+</p>
+
+<p align="center">
+  <em>
+    End-to-end architecture of the Autonomous Bug Fixer — Multi-Agent RAG System,
+    illustrating intent routing, retrieval-augmented generation (RAG), multi-agent
+    analysis, automated fix generation, GitHub integration, continuous learning,
+    and response delivery.
+  </em>
+</p>
+
 
 ## How it works
 
