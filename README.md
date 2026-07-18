@@ -11,9 +11,20 @@ A multi-agent AI system that turns a plain-English bug report into a reviewed, r
 ![Slack](https://img.shields.io/badge/Slack-Bolt-4A154B?style=flat&logo=slack&logoColor=white)
 ![GitHub](https://img.shields.io/badge/GitHub-Octokit-181717?style=flat&logo=github&logoColor=white)
 
-**Live demo:** [add your Render URL here]
+## System Architecture
 
-![System Architecture](./architecture-diagram.svg)
+<p align="center">
+  <img src="./archi/architecture.png" alt="Autonomous Bug Fixer — Multi-Agent RAG System Architecture" width="100%">
+</p>
+
+<p align="center">
+  <em>
+    End-to-end architecture of the Autonomous Bug Fixer — Multi-Agent RAG System,
+    illustrating intent routing, retrieval-augmented generation (RAG), multi-agent
+    analysis, automated fix generation, GitHub integration, continuous learning,
+    and response delivery.
+  </em>
+</p>
 
 ## Overview
 
