@@ -60,7 +60,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
 Be honest and critical — do not inflate the confidence score. If the fix seems incomplete or the context was limited, reflect that in a lower score.`;
 
   const completion = await groq.chat.completions.create({
-    model: 'llama-3.1-8b-instant',
+    model: 'openai/gpt-oss-20b',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.2,
   });

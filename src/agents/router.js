@@ -19,7 +19,7 @@ Categories:
 Respond with ONLY one word: either "bug_fix" or "general_question". No punctuation, no explanation.`;
 
   const completion = await groq.chat.completions.create({
-    model: 'llama-3.1-8b-instant',
+    model: 'openai/gpt-oss-20b',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0,
     max_tokens: 10,
@@ -49,7 +49,7 @@ ${codeContext || 'No relevant code found in the indexed repository.'}
 Answer the question clearly and concisely based on the code above. If the code context doesn't contain enough information to answer confidently, say so honestly instead of guessing.`;
 
   const completion = await groq.chat.completions.create({
-    model: 'llama-3.1-8b-instant',
+    model: 'openai/gpt-oss-20b',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.3,
   });
