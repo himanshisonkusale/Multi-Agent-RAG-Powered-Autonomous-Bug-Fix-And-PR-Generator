@@ -106,8 +106,18 @@ const worker = new Worker(
   { connection, concurrency: 3 }
 );
 
+worker.on('completed', (job, result) => {
+  console.log('✅ JOB COMPLETED:', job.id);
+  console.log('📦 RESULT:', JSON.stringify(result, null, 2));
+});
+
 worker.on('failed', (job, err) => {
-  console.error(`Job ${job.id} failed:`, err.message);
+  console.error('❌ JOB FAILED:', job?.id);
+  console.error('❌ ERROR:', err);
+});
+
+worker.on('error', (err) => {
+  console.error('🔥 WORKER ERROR:', err);
 });
 
 module.exports = { worker };
